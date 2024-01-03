@@ -1,0 +1,29 @@
+
+button-paginator @ git+https://github.com/antinuke0day/button_paginator.git@50d1f695a8cdcf8be37b04ec158ab51c477dab35
+pyfiglet 
+python-dotenv 
+pyfiglet
+
+aiofiles 
+dadjokes 
+jishaku 
+
+lxml 
+
+
+termcolor
+
+rich
+
+button-paginator @ git+https://github.com/antinuke0day/button_paginator.git@50d1f695a8cdcf8be37b04ec158ab51c477dab35
+pyfiglet 
+python-dotenv 
+pyfiglet
+humanfriendly 
+aiofiles 
+dadjokes 
+
+
+lxml 
+
+termcolor
