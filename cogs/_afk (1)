@@ -1,0 +1,1336 @@
+from discord.ext import commands
+from prince.bot import Bot
+import discord, requests
+import json
+from prince.bot import Bot
+from discord.ui import View, Button
+from discord.ext.commands import Cog
+import sqlite3
+from ast import literal_eval
+import time
+from prince1.Tools import*
+import asyncio
+from prince.confirm import ConfirmationPrompt
+from prince import emote
+from prince import embed_creator
+from typing import Optional
+from googletrans import Translator
+from typing import *
+from discord import app_commands
+from io import BytesIO
+import datetime 
+class Afkviewp(discord.ui.View):
+
+    def __init__(self,reason,*,timeout=15):
+
+        super().__init__(timeout=timeout) 
+
+        self.reason = reason 
+
+       # self.message = self.message
+
+    @discord.ui.button(label = "Afk only in this server", style = discord.ButtonStyle.green)
+
+    async def Afkviewp(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        if interaction.user != author: return await interaction.response.send_message("> This is not for you!", ephemeral = True)
+
+        reason = self.reason
+
+     #   if "discord.gg" in reason:
+
+          
+
+        if reason is None:
+
+            reason = "I'm Afk :))"
+
+        query = "SELECT * FROM afk WHERE user_id = ?"
+
+        val = (interaction.user.id,)
+
+        with sqlite3.connect('./database.sqlite3') as db:
+
+          db.row_factory = sqlite3.Row
+
+          cursor = db.cursor()
+
+          cursor.execute(query, val)
+
+          auto_db = cursor.fetchone()
+
+          if auto_db is None:
+
+            ds = {}
+
+            ds[interaction.guild.id] = {}
+
+            ds[interaction.guild.id]['status'] = True
+
+            ds[interaction.guild.id]['reason'] = reason 
+
+            ds[interaction.guild.id]['time'] = int(time.time())
+
+            ds[interaction.guild.id]['mentions'] = 0
+
+            sql = (f"INSERT OR IGNORE INTO 'afk'(user_id, afkk) VALUES(?, ?)")
+
+            val = (interaction.user.id, f"{ds}",)
+
+            cursor.execute(sql, val)
+
+            await interaction.message.edit(content=f'**{str(interaction.user)}**, Your AFK is now set to: **{reason}**',view=None,embed=None)
+
+            db.commit()
+
+            cursor.close()
+
+            db.close()
+
+         #   try:
+
+            await interaction.user.edit(nick=f'[AFK]{interaction.user.display_name}')
+
+          else:
+
+                ds = literal_eval(auto_db['afkk'])
+
+                ds[interaction.guild.id] = {}
+
+                ds[interaction.guild.id]['status'] = True
+
+                ds[interaction.guild.id]['reason'] = reason
+
+                ds[interaction.guild.id]['time'] = int(time.time())
+
+                ds[interaction.guild.id]['mentions'] = 0
+
+                sql = (f"UPDATE afk SET afkk = ? WHERE user_id = ?")
+
+                val = (f"{ds}", interaction.user.id)
+
+                cursor.execute(sql, val)
+
+                await interaction.response.edit_message(content=f'**{str(interaction.user)}**, Your AFK is now set to: {reason}',view=None,embed=None)
+
+                db.commit()
+
+                cursor.close()
+
+                db.close()
+
+               # try:
+
+                await interaction.user.edit(nick=f'[AFK]{interaction.user.display_name}')
+
+               # except disord.Forbidden:
+
+               #   pass
+
+                        
+
+                
+
+    @discord.ui.button(label = "Afk in all servers(mutuals)", style = discord.ButtonStyle.green)
+
+    async def glob(self, interaction: discord.Interaction,reason=None):
+
+        if interaction.user != author: return await interaction.response.send_message("> This is not for you!", ephemeral = True)
+
+        reason = self.reason
+
+        if reason is None:
+
+          reason = "I'm afk:))"
+
+        
+
+        
+
+        data = getAfk(interaction.user.id)
+
+        await interaction.message.edit(content=f'**{str(interaction.user)}**, Your global AFK is now set to: **{reason}**',view=None,embed=None)
+
+        data["status"] = True
+
+        data["reason"] = reason
+
+        data["time"] = datetime.datetime.now().timestamp()
+
+        updateAfk(interaction.user.id, data)
+
+
+class Afk(Cog,name="util"):
+    def __init__(self, client):
+        self.client = client
+
+    async def time_formatter(self, seconds: float):
+        minutes, seconds = divmod(int(seconds), 60)
+        hours, minutes = divmod(minutes, 60)
+        days, hours = divmod(hours, 24)
+        tmp = ((str(days) + " days, ") if days else "") + \
+        ((str(hours) + " hours, ") if hours else "") + \
+        ((str(minutes) + " minutes, ") if minutes else "") + \
+        ((str(seconds) + " seconds, ") if seconds else "")
+        return tmp[:-2]
+    @commands.command(aliases=["dnt"])
+
+    async def donate(self,ctx):
+
+        embed = discord.Embed(title="**Wanna Donate?**", description="You Can Donate In Owo/Inr/crypto($)\nYour contribution will be used in our Maintianence and development\n Thanks For Your Support",color=0x2f3136)
+
+        embed.set_author(name=ctx.author,icon_url=ctx.author.display_avatar)
+
+        embed.set_thumbnail(url=self.client.user.avatar)
+
+        embed.set_footer(text="Made By Prince")
+
+        await ctx.send(embed = embed)
+    @commands.group(name="boost", help="Enables/Disables boost message !", invoke_without_command=True)
+
+  
+ 
+    @commands.cooldown(1, 10, commands.BucketType.user)
+
+    @commands.max_concurrency(1, per=commands.BucketType.default, wait=False)
+
+    @commands.guild_only()
+
+    @blacklist_check()
+
+#  @voter_only()
+
+    async def _boost(self, ctx: Context):
+
+        if ctx.subcommand_passed is None:
+
+          await ctx.send_help(ctx.command)
+
+          ctx.command.reset_cooldown(ctx)
+
+  
+
+                
+
+    @_boost.command(name="enable",aliases=["on"])
+
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    @commands.has_permissions(administrator=True)
+    @commands.max_concurrency(1, per=commands.BucketType.default, wait=False)
+
+    @commands.guild_only()
+    async def _boot_enable(self,ctx):
+        data = getboost(ctx.guild.id)
+        if data == "on": 
+           embed =  discord.Embed(title="__Soward Prime__", description="Boost message already enabeld",color=0x2f3136)
+           await ctx.send(embed=embed)
+        else:
+            data = "on"
+            updateboost(ctx.guild.id,data)
+            em=discord.Embed(title="__Soward Prime__", description="Successfully enabled boost message",color=0x2f3136)
+            em.set_author(name=ctx.author,icon_url=ctx.author.display_avatar)
+            em.set_thumbnail(url=self.client.user.avatar)
+            em.set_footer(text="Made By Prince")
+            await ctx.send(embed=em)
+ 
+      
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+          
+
+        
+
+        
+
+    
+
+    @_boost.command(name="disable", help="You can disable boost message ", aliases=["off"])
+
+  
+
+    @commands.cooldown(1, 10, commands.BucketType.user)
+
+    @commands.max_concurrency(1, per=commands.BucketType.default, wait=False)
+
+    @commands.guild_only()
+
+ # @voter_only()
+
+    async def _boost_disable(self, ctx: Context):
+
+        data = getboost(ctx.guild.id)
+
+     
+
+        if data == "off":
+
+          emb = discord.Embed(title="**__Soward Prime__**", description=f" Boost Message already disabled in this server", color=0x2f3136, timestamp=ctx.message.created_at)
+
+          emb.set_author(name=ctx.author, icon_url=ctx.author.display_avatar.url)
+
+          if ctx.guild.icon:
+
+            emb.set_thumbnail(url=ctx.guild.icon)
+
+          emb.set_footer(text="Made By Prince")
+
+          await ctx.reply(embed=emb, mention_author=False)
+
+        else:
+
+          data = "off"
+
+          updateboost(ctx.guild.id, data)
+
+          swrd = discord.Embed(title="Soward Prime", description=f"Successfully disabled Boost message for this server ", color=0xFF1B1B, timestamp=ctx.message.created_at)
+
+          swrd.set_author(name=ctx.author, icon_url=ctx.author.display_avatar.url)
+
+          if ctx.guild.icon:
+
+            swrd.set_thumbnail(url=ctx.guild.icon)
+
+          swrd.set_footer(text="Made By Prince")
+
+          await ctx.reply(embed=swrd, mention_author=False)
+    @commands.command(pass_context=True)
+
+    async def ping(self,ctx):
+
+        """ Pong! """
+        message = ctx.message
+        await message.delete()
+
+        before = time.monotonic()
+
+        message = await ctx.send("Pong!")
+
+        ping = round(self.client.latency*1000)
+
+        await message.edit(content=f"Pong!  `{int(ping)}ms`")
+
+        print(f'Ping {int(ping)}ms')
+    @commands.command(aliases=["ast","addstick"],usage="addsticker <reply with sticker message>")
+    @commands.has_permissions(manage_emojis=True)
+    async def addsticker(self,ctx):
+
+        ref = ctx.message.reference
+        if not ref:
+          await ctx.send_help(ctx.command)
+        else:
+            msg = await ctx.fetch_message(ref.message_id)
+
+        stickers = msg.stickers
+
+        for sticker in stickers:
+
+            name = sticker.name
+
+        sticker = await sticker.fetch()
+
+        file = discord.File(fp=BytesIO(await sticker.read()))
+
+        try:
+
+           sticker = await ctx.guild.create_sticker(name=name, description=f"Uploaded by {ctx.author}",emoji=sticker.name, file=file, reason=f"Command used by {ctx.author}")
+
+           
+
+           await ctx.reply(f"<:Icons_correct:1017402689027592222> | Sticker created with the Name `{sticker.name}`",stickers=[sticker])
+
+        except Exception:
+
+          embed=discord.Embed(description="Maximum number of stickers reached",color=0x2f3136, timestamp=ctx.message.created_at)
+
+    
+
+          embed.set_author(name=ctx.author,icon_url=ctx.author.display_avatar)
+
+        embed.set_footer(text="Made By Prince",icon_url=self.client.user.avatar)
+
+        return await ctx.reply(embed=embed,delete_after=5)
+    @commands.command()
+    @commands.has_permissions(administrator=True)
+    async def roleicon(self,ctx,role:discord.Role,*,emoji:discord.PartialEmoji=None):
+        if ctx.guild.premium_subscription_count <=6:
+            await ctx.reply("<:zzcross:1104092956039848017> | This server does not support role icons. Servers with level 2 boosts are allowed to set role icons.")
+            return
+        if emoji is None:
+
+            
+
+            await role.edit(display_icon=None,reason=f"command executed by {ctx.author}")
+
+            await ctx.send(f"<:Icons_correct:1017402689027592222> | successfully edited `{role.name}` icon")
+        else:
+            emoji_op = await emoji.read()
+            await role.edit(display_icon=emoji_op,reason=f"command executed by {ctx.author}")
+            await ctx.send(f"<:Icons_correct:1017402689027592222> |successfully edited `{role.name}` icon to {emoji} ")
+    
+        
+    
+            
+            
+
+          
+           
+       
+        
+            
+           
+
+            
+            
+    @commands.command()
+    async def users(self,ctx):
+        await ctx.send(sum([len(guild.members) for guild in self.client.guilds]))
+                 
+            
+    @commands.command(name="afk",aliases=["busy"])
+    @blacklist_check()
+
+    async def afk1(self,ctx,*,reason=None):
+        if reason is None:
+
+            reason = "I'm Afk :))"                        
+
+        if "@everyone" in reason or "@here" in reason:
+
+            await ctx.reply("You cannot mention everyone or here in a afk reason")
+
+            return
+
+        if "<&" in reason:
+
+            await ctx.reply("You cannot mention a role in a afk reason")
+
+            return
+
+        if "discord.gg" in reason:
+
+            await ctx.reply("You cannot advertise a server in a afk reason")
+
+            return
+
+        if "https://" in reason:
+
+           await ctx.reply(f"**{ctx.author}** Links are not allowed in afk reason")
+
+           return
+
+        global author 
+
+        author = ctx.author
+
+        global message
+
+        
+
+        em = discord.Embed(description="Choose your afk style from the buttons below.", color=0x2f3136)
+
+        em.set_author(name=ctx.author,icon_url=ctx.author.display_avatar)
+
+      #  em.set_footer(text="Made By Prince")
+
+       # message = em
+
+        reason = reason
+
+        view = Afkviewp(reason)
+
+        ok = await ctx.send(embed=em,view=view)
+
+               
+            
+ 
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if not message.guild:
+                        return
+        if message.mentions:
+            for user_mention in message.mentions:
+                query = "SELECT * FROM  afk WHERE user_id = ?"
+                val = (user_mention.id,)
+                with sqlite3.connect('./database.sqlite3') as db:
+                    db.row_factory = sqlite3.Row
+                    cursor = db.cursor()
+                    cursor.execute(query, val)
+                    auto_db = cursor.fetchone()
+                    if auto_db is None:
+                        continue
+                try:
+                    afk = literal_eval(auto_db['afkk'])
+                except:
+                    continue
+                if message.guild.id in afk:
+                  if afk[message.guild.id]['status'] == True:
+                    if message.author.bot: 
+                        continue
+                    reason = afk[message.guild.id]['reason']
+                    t = afk[message.guild.id]['time']
+                    afk[message.guild.id]['mentions']+=1
+                    sql = (f"UPDATE afk SET afkk = ? WHERE user_id = ?")
+                    val = (f"{afk}", user_mention.id)
+                    cursor.execute(sql, val)
+                    await message.channel.send(f'**{str(user_mention)}** went AFK <t:{t}:R>: {reason}',allowed_mentions=discord.AllowedMentions(
+
+            everyone=False,
+
+            replied_user=False,
+
+            roles=False,
+            users=False)
+
+          )
+                    db.commit()
+                    cursor.close()
+                    db.close()
+        query = "SELECT * FROM  afk WHERE user_id = ?"
+        val = (message.author.id,)
+        with sqlite3.connect('./database.sqlite3') as db:
+            db.row_factory = sqlite3.Row
+            cursor = db.cursor()
+            cursor.execute(query, val)
+            auto_db = cursor.fetchone()
+            if auto_db is None:
+                return
+        try:
+            afk = literal_eval(auto_db['afkk'])
+        except:
+            return
+        if message.guild.id in afk:
+          if afk[message.guild.id]['status'] == True:
+            meth = int(time.time()) - int(afk[message.guild.id]['time'])
+            been_afk_for = await self.time_formatter(meth)
+            if message.author.display_name.startswith("[AFK]") and message.author.top_role.position < message.guild.me.top_role.position:
+              try:
+                await message.author.edit(nick=f'{message.author.display_name[5:]}')
+              except:
+                pass
+            await message.channel.send(f"{message.author.mention} I removed your Afk, You were afk for {been_afk_for}, you were mentioned {afk[message.guild.id]['mentions']} times", delete_after=60)
+            afk[message.guild.id]['status'] = False
+            afk[message.guild.id]['reason'] = None
+            afk[message.guild.id]['time'] = 0
+            afk[message.guild.id]['mentions'] = 0
+            sql = (f"UPDATE afk SET afkk = ? WHERE user_id = ?")
+            val = (f"{afk}", message.author.id)
+            cursor.execute(sql, val)
+        db.commit()
+        cursor.close()
+        db.close()          
+  
+
+    
+
+    
+      
+  
+ 
+        
+ 
+   
+      
+          
+          
+                
+               
+      
+          
+          
+            
+            
+        
+             
+          
+             
+                 
+             
+            
+                
+               
+                  
+                
+                  
+    @commands.hybrid_command(name="embed",description="""Create a custom embed""",help="""Create a custom embed""",brief="Create a custom embed",aliases=["cembed", "ce","cem"],enabled=True,hidden=False,)
+    @commands.has_permissions(manage_messages=True)
+
+    @commands.cooldown(1.0, 5.0, commands.BucketType.user)
+
+    async def custom_embed_cmd(self, ctx: commands.Context) -> None:
+
+        """
+
+        Create a custom embed
+
+           """
+
+        embed = discord.Embed(
+
+            title="Embed Creator",
+
+            description="Create an embed with this view!",color=0x2f3136,
+
+            timestamp=discord.utils.utcnow(),
+
+        )
+
+        view = embed_creator.CustomEmbedView(ctx, embed)
+
+        await ctx.reply(embed=embed, view=view)      
+               
+    @commands.hybrid_command(aliases=["tl"])
+
+  #  @app_commands.guilds(*GuildIDs.ALL_GUILDS)
+
+    @app_commands.describe(message="The string or message to translate.")
+
+    async def translate(self, ctx: commands.Context, *, message: str = None) -> None:
+
+        """Translates a message from any language to english.
+
+        Specify a string to translate, or a message to translate by either using message ID/Link,
+
+        or replying to a message.
+
+        Attempts to guess the original language.
+
+        """
+
+        # First we check if the user is replying to a message.
+
+        if ctx.message.reference and not message:
+
+            fetched_message = await ctx.channel.fetch_message(
+
+                ctx.message.reference.message_id
+
+            )
+
+            message = fetched_message.content
+
+        # Similar to the emoji command, we have to use the converter ourselves here,
+
+        # instead of just typehinting a Union of Message and str and letting discord.py handle it.
+
+        try:
+
+            message_converter = commands.MessageConverter()
+
+            fetched_message = await message_converter.convert(ctx, message)
+
+            message = fetched_message.content
+
+        except commands.CommandError:
+
+            pass
+
+        # Checks if the message is empty if either the user failed to specify anything,
+
+        # or if the message content of the message specified is empty.
+
+        if not message:
+
+            await ctx.send("You need to specify a message to translate!")
+
+            return
+
+        translation = Translator().translate(f"{message}", dest="en")
+
+        embed = discord.Embed(description=translation.text[:1000], colour=0x2f3136)
+
+
+      #  embed.add_field(
+
+      #      name=f"Original Text :",
+
+     #       value=translation.origin[:1000],
+
+     #       inline=False,
+
+    #    )
+
+    #    embed.add_field(
+
+     #       name="Translated Text (en):", value=translation.text[:1000], inline=False
+
+   #     )
+
+   #     embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar)
+
+        await ctx.reply(embed=embed)
+        
+    @commands.group(name="banner")
+
+    async def banner(self, ctx):
+
+        if ctx.invoked_subcommand is None:
+
+            await ctx.send_help(ctx.command)
+
+    @banner.command(name="server")
+
+    async def server(self, ctx):
+
+        if not ctx.guild.banner:
+
+            await ctx.reply("This server does not have a banner.")
+
+        else:
+
+            webp = ctx.guild.banner.replace(format='webp')
+
+            jpg = ctx.guild.banner.replace(format='jpg')
+
+            png = ctx.guild.banner.replace(format='png')
+
+            embed = discord.Embed(
+
+                color=0x2f3136,
+
+                description=f"[`PNG`]({png}) | [`JPG`]({jpg}) | [`WEBP`]({webp})"
+
+                if not ctx.guild.banner.is_animated() else
+
+                f"[`PNG`]({png}) | [`JPG`]({jpg}) | [`WEBP`]({webp}) | [`GIF`]({ctx.guild.banner.replace(format='gif')})"
+
+            )
+
+            embed.set_image(url=ctx.guild.banner)
+
+            embed.set_author(name=ctx.guild.name,
+
+                             icon_url=ctx.guild.icon.url
+
+                             if ctx.guild.icon else ctx.guild.default_icon.url)
+
+            embed.set_footer(
+
+                text=f"Requested By {ctx.author}",
+
+                icon_url=ctx.author.avatar.url
+
+                if ctx.author.avatar else ctx.author.default_avatar.url)
+
+            await ctx.reply(embed=embed)
+
+    @blacklist_check()
+
+  #  @ignore_check()
+
+    @banner.command(name="user")
+
+    @commands.cooldown(1, 2, commands.BucketType.user)
+
+    @commands.max_concurrency(1, per=commands.BucketType.default, wait=False)
+
+    @commands.guild_only()
+
+    async def _user(self,
+
+                    ctx,
+
+                    member: Optional[Union[discord.Member,
+
+                                           discord.User]] = None):
+
+        if member == None or member == "":
+
+            member = ctx.author
+
+        bannerUser = await self.client.fetch_user(member.id)
+
+        if not bannerUser.banner:
+
+            await ctx.reply("{} does not have a banner.".format(member))
+
+        else:
+
+            webp = bannerUser.banner.replace(format='webp')
+
+            jpg = bannerUser.banner.replace(format='jpg')
+
+            png = bannerUser.banner.replace(format='png')
+
+            embed = discord.Embed(
+
+                color=0x2f3136,
+
+                description=f"[`PNG`]({png}) | [`JPG`]({jpg}) | [`WEBP`]({webp})"
+
+                if not bannerUser.banner.is_animated() else
+
+                f"[`PNG`]({png}) | [`JPG`]({jpg}) | [`WEBP`]({webp}) | [`GIF`]({bannerUser.banner.replace(format='gif')})"
+
+            )
+
+            embed.set_author(name=f"{member}",
+
+                             icon_url=member.avatar.url
+
+                             if member.avatar else member.default_avatar.url)
+
+            embed.set_image(url=bannerUser.banner)
+
+            embed.set_footer(
+
+                text=f"Requested By {ctx.author}",
+
+                icon_url=ctx.author.avatar.url
+
+                if ctx.author.avatar else ctx.author.default_avatar.url)
+            await ctx.send(embed=embed)
+    @commands.command(aliases=["special","cursive", "italics"])
+    async def fancy(self, ctx, *, message):
+        letters = {
+            "z": "𝓏",
+            "y": "𝓎",
+            "x": "𝓍",
+            "w": "𝓌",
+            "v": "𝓋",
+            "u": "𝓊",
+            "t": "𝓉",
+            "s": "𝓈",
+            "r": "𝓇",
+            "q": "𝓆",
+            "p": "𝓅",
+            "o": "𝑜",
+            "n": "𝓃",
+            "m": "𝓂",
+            "l": "𝓁",
+            "k": "𝓀",
+            "j": "𝒿",
+            "i": "𝒾",
+            "h": "𝒽",
+            "g": "𝑔",
+            "f": "𝒻",
+            "e": "𝑒",
+            "d": "𝒹",
+            "c": "𝒸",
+            "b": "𝒷",
+            "a": "𝒶"
+        }
+        message = message.lower()
+        NewMessage = ""
+        for letter in message:
+            if letter in letters:
+                NewMessage += letters[letter]
+            else:
+                NewMessage += letter
+        await ctx.reply(NewMessage, mention_author=False)
+
+    
+
+    
+
+    
+
+      
+
+     
+
+    @commands.group(invoke_without_command=True,aliases=["clear"])
+
+    @commands.has_permissions(manage_messages=True)
+
+    async def purge(self, ctx,amount:int=10):
+
+        if amount >999:
+
+            return await ctx.send(embed=discord.Embed(color=0x010101, description="❌ | Not more than 999"))
+
+        deleted = await ctx.channel.purge(limit=amount+1)
+
+        return await ctx.send(embed=discord.Embed(color=0x010101, description=f"<:ri8:1038487759750438912> | Successfully Purged {len(deleted)-1} Messages",delete_after=5))
+
+    
+
+    
+
+    async def do_removal(self, ctx, limit, predicate, *, before=None, after=None, message=True):
+
+        if limit > 2000:
+
+            return await ctx.send(f"Too many messages to search given ({limit}/2000)")
+
+        if not before:
+
+            before = ctx.message
+
+        else:
+
+            before = discord.Object(id=before)
+
+        if after:
+
+            after = discord.Object(id=after)
+
+        try:
+
+            deleted = await ctx.channel.purge(limit=limit, before=before, after=after, check=predicate)
+
+        except discord.Forbidden:
+
+            return await ctx.send(embed=discord.Embed(color=0x2f3136,  description=" I Need Manage Messages"))
+
+        except discord.HTTPException as e:
+
+            return await ctx.send(f"Error: {e} (try a smaller search?)")
+
+        deleted = len(deleted)
+
+        if message is True:
+
+            await ctx.send(embed=discord.Embed(color=0x2f3136, description=f"<:ri8:1038487759750438912> | Successfully removed {deleted} message{'' if deleted == 1 else 's'} of bots."), delete_after=5)
+
+    
+
+      
+
+    
+
+    @purge.command()
+
+    @commands.has_permissions(manage_messages=True)
+
+  #  @checks.ignore_check()  
+
+  #  @checks.not_blacklisted()
+
+    @commands.has_guild_permissions(manage_messages=True)
+
+    async def embeds(self, ctx, search=100):
+
+        """Removes messages that have embeds in them."""
+
+        await self.do_removal(ctx, search, lambda e: len(e.embeds))
+
+    @purge.command(help="Clears the messages containing invite links",usage="purge invites")
+
+  #  @checks.ignore_check()  
+
+  #  @checks.not_blacklisted()
+
+    @commands.has_permissions(manage_messages=True)
+
+    @commands.has_guild_permissions(manage_messages=True)
+
+    async def invites(self, ctx, amount: int = 10):
+
+        if amount >1000:
+
+            return await ctx.send("Maximum number of amount reached")
+
+        global counter
+
+        counter = 0
+
+        def check(m):
+
+            global counter
+
+            if counter >= amount:
+
+                return False
+
+            if "discord.gg/" in m.content.lower():
+
+                counter += 1
+
+                return True
+
+            else:
+
+                return False
+
+        deleted = await ctx.channel.purge(limit=100, check=check)
+
+        return await ctx.send(f"<:ri8:1038487759750438912> | Successfully Deleted {len(deleted)} Invites In {ctx.channel.mention}",delete_after=5)
+
+    @purge.command()
+
+ #   @checks.ignore_check()  
+
+   # @checks.not_blacklisted()
+
+    @commands.has_permissions(manage_messages=True)
+
+    async def files(self, ctx, search=100):
+
+        """Removes messages that have attachments in them."""
+
+        await self.do_removal(ctx, search, lambda e: len(e.attachments))
+
+    @purge.command()
+
+ #   @checks.ignore_check()  
+
+  #  @checks.not_blacklisted()
+
+    @commands.has_permissions(manage_messages=True)
+
+    async def mentions(self, ctx, search=100):
+
+        """Removes messages that have mentions in them."""
+
+        await self.do_removal(ctx, search, lambda e: len(e.mentions) or len(e.role_mentions))
+
+    @purge.command()
+
+  #  @checks.ignore_check()  
+
+  #  @checks.not_blacklisted()
+
+    @commands.has_permissions(manage_messages=True)
+
+    async def images(self, ctx, search=100):
+
+        """Removes messages that have embeds or attachments."""
+
+        await self.do_removal(ctx, search, lambda e: len(e.embeds) or len(e.attachments))
+
+    @purge.command(name="all")
+
+  #  @checks.ignore_check()  
+
+  #  @checks.not_blacklisted()
+
+    @commands.has_permissions(manage_messages=True)
+
+    async def _remove_all(self, ctx, search=100):
+
+        """Removes all messages."""
+
+        await self.do_removal(ctx, search, lambda e: True)
+
+    @purge.command(name="bots",aliases=["bot"])
+    @commands.has_permissions(manage_messages=True)
+
+    async def _bots(self, ctx, search=100):
+
+        """Removes a bot user's messages and messages with their optional prefix."""
+
+        getprefix = [";", "$", "!", "-", "?", ">", "^", "$", "w!", ".", ",", "a?", "g!", "m!", "s?"]
+
+        def predicate(m):
+
+            return (m.webhook_id is None and m.author.bot) or m.content.startswith(tuple(getprefix))
+
+        await self.do_removal(ctx, search, predicate)
+
+    @purge.command(name="emojis")
+
+   # @checks.ignore_check()  
+
+   # @checks.not_blacklisted()
+
+    @commands.has_permissions(manage_messages=True)
+
+    async def _emojis(self, ctx, search=100):
+
+        """Removes all messages containing custom emoji."""
+
+        custom_emoji = re.compile(r"<a?:(.*?):(\d{17,21})>|[\u263a-\U0001f645]")
+
+        def predicate(m):
+
+            return custom_emoji.search(m.content)
+
+        await self.do_removal(ctx, search, predicate)
+
+    @purge.command(name="reactions")
+
+  #  @checks.ignore_check()  
+
+  #  @checks.not_blacklisted()
+
+    @commands.has_permissions(manage_messages=True)
+
+    async def _reactions(self, ctx, search=100):
+
+        """Removes all reactions from messages that have them."""
+
+        if search > 2000:
+
+            return await ctx.send(f"Too many messages to search for ({search}/2000)")
+
+        total_reactions = 0
+
+        async for message in ctx.history(limit=search, before=ctx.message):
+
+            if len(message.reactions):
+
+                total_reactions += sum(r.count for r in message.reactions)
+
+                await message.clear_reactions()
+
+        await ctx.send(f"Successfully removed {total_reactions} reactions.",delete_after=5)
+
+    @purge.command(help="Clears the messages of the given user",usage="purge <user>")
+
+   # @checks.ignore_check()  
+
+ #   @blacklist_check()
+
+    @commands.has_permissions(manage_messages=True)
+
+    async def user(self, ctx, user: discord.Member, amount: int = 50):
+
+        if amount >1000:
+
+            return await ctx.author.send(embed=discord.Embed(description="Purge limit Reached",delete_after=5))
+
+        global counter
+
+        counter = 0
+
+        def check(m):
+
+            global counter
+
+            if counter >= amount:
+
+                return False
+
+            if m.author.id == user.id:
+
+                counter += 1
+
+                return True
+
+            else:
+
+                return False
+
+        deleted = await ctx.channel.purge(limit=100, check=check)
+
+        return await ctx.send(embed=discord.Embed(description=f"Successfully Purged User  {len(deleted)} Messages"), delete_after=5)
+
+    @commands.group(invoke_without_command=True,aliases=["mm"])
+
+    async def maintenance(self, ctx):
+
+        """Maintenance ON/ OFF for the server."""
+
+        await ctx.send_help(ctx.command)
+
+    @maintenance.command(name="on")
+
+    @commands.has_permissions(administrator=True)
+
+    @commands.bot_has_guild_permissions(manage_channels=True)
+
+    async def maintenace_on(self, ctx, *, role: discord.Role = None):
+
+        """
+
+        Turn ON maintenance mode.
+
+        You can turn on maintenance for a specific role too , the default role is everyone.
+
+        This will hide all the channels where `role` has `read_messages` permission enabled.
+
+        """
+
+        me = ctx.guild.me
+
+        if me.top_role >= ctx.message.author.top_role and ctx.message.author.id != ctx.guild.owner_id:
+
+            await ctx.reply(embed=discord.Embed(title="You must have role above me to use this cmd.", color=0x2f3136))
+
+            return
+
+        else:
+
+         role = role or ctx.guild.default_role
+
+        
+
+        channels = list(filter(lambda x: x.overwrites_for(role).read_messages, ctx.guild.channels))
+
+        mine = sum(1 for i in filter(lambda x: x.permissions_for(ctx.me).manage_channels, (channels)))
+
+        if not (channels):
+
+            return await ctx.reply(f"**{role}** doesn't have `read_messages` enabled in any channel.")
+
+            return
+
+        if not mine:
+
+            return await ctx.reply(
+
+                f"`{sum(1 for i in channels)} channels` have read messages enabled. But unfortunately I don't permission to edit any of them."
+
+            )
+
+            return
+
+        confirmation = ConfirmationPrompt(ctx, color=0x010101)
+
+        await confirmation.confirm(title="confirmation", description = f"This Will Lock All The Channel in this Server")    
+
+        if confirmation.confirmed:
+
+            await confirmation.update(description = f"{emote.loading} | locking {len(channels)} Channels")
+
+            success, failed = [], 0
+
+            reason = f"Action done by -> {str(ctx.author)} ({ctx.author.id})"
+
+            for channel in channels:
+
+                overwrite = channel.overwrites_for(role)
+
+                overwrite.read_messages = False 
+
+                try:
+
+                    await channel.set_permissions(role, overwrite=overwrite, reason=reason)
+
+                    success.append(channel.id)
+
+                except:
+
+                    failed += 1
+
+                    continue    
+
+            await confirmation.update(description = f"Updated settings for `{len(success)} channels`.(`{failed}` failed)")
+
+            channels_create_confirmation = ConfirmationPrompt(ctx)
+
+            await channels_create_confirmation.confirm(title = "confirmation", description = f"This Will Create Maintainence Channels")    
+
+            if channels_create_confirmation.confirmed:
+
+                await channels_create_confirmation.update(description = f"{emote.loading} | Creating Maintainence Channels")
+
+                overwrites = {
+
+                    role: discord.PermissionOverwrite(read_messages=True, send_messages=True, read_message_history=True),
+
+                    ctx.guild.me: discord.PermissionOverwrite(
+
+                        read_messages=True, send_messages=True, read_message_history=True
+
+                    ),
+
+                }
+
+                await ctx.guild.create_text_channel(f"maintenance-chat", overwrites=overwrites, reason=reason)
+
+                await ctx.guild.create_voice_channel(f"maintenance-vc", overwrites=overwrites, reason=reason)
+
+                await channels_create_confirmation.update(f"Done")
+
+            else:
+
+                return await channels_create_confirmation.update(description = f"Ok! Not Creating Channels")
+
+        else:
+
+            await confirmation.update(description = "Not confirmed", hide_author=True, color=0x2f3136)
+
+            
+
+    @maintenance.command(name="off")
+
+    @commands.bot_has_guild_permissions(manage_channels=True)
+
+    @commands.has_permissions(administrator=True)
+
+    async def maintenance_off(self, ctx, *, role: discord.Role = None):
+
+        """
+
+        Turn OFF maintenance mode.
+
+        If you turned ON maintenance mode for a specific role , you need to mention it here too.
+
+        """
+
+        me = ctx.guild.me
+
+        if me.top_role >= ctx.message.author.top_role and ctx.message.author.id != ctx.guild.owner_id:
+
+            await ctx.reply(embed=discord.Embed(title="You must have role above me to use this cmd.", color=0x2f3136))
+
+            return 
+
+        else:
+
+         role = role or ctx.guild.default_role
+
+        editable = await ctx.send(f'{emote.loading} | Unocking The Server')
+
+        success = 0
+
+        for channel in ctx.guild.channels:
+
+            if channel is not None and channel.permissions_for(channel.guild.me).manage_channels:
+
+                perms = channel.overwrites_for(role)
+
+                perms.read_messages = True
+
+                await channel.set_permissions(role, overwrite=perms, reason="Lockdown timer complete!")
+
+                success += 1
+
+        await editable.edit(
+
+            content = f"{emote.tick} | Successfully disabled maintenance mode"
+
+        )
+
+        tc = discord.utils.get(ctx.guild.channels, name=f"maintenance-chat")
+
+        vc = discord.utils.get(ctx.guild.channels, name=f"maintenance-vc")
+
+        if tc and vc:
+
+            await tc.delete()
+
+            await vc.delete()   
+  
+ 
+
+    
+
+
+
+   
+
+ 
+
+   
+
+      
+
+     
+
+   
+
+    
+
+      
+
+     
+
+async def setup(client):
+    await client.add_cog(Afk(client))
